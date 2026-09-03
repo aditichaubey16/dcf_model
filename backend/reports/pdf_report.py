@@ -4,8 +4,10 @@ Structure mirrors a typical deal-team valuation memo: cover, executive
 summary, cash flow analysis & key changes, DCF valuation, sensitivity,
 scenario analysis (with a bear/base/bull chart), risk/concern flags,
 disclaimer — with a branded header/footer and page numbers on every page.
-Every figure is pulled from the same deterministic computations behind the
-dashboard/Excel export — nothing here is generated or phrased by a model.
+Serif (Times) typeface and a continuous flow (sections separated by rules,
+not forced page breaks) for a tighter, print-shop finish. Every figure is
+pulled from the same deterministic computations behind the dashboard/Excel
+export — nothing here is generated or phrased by a model.
 """
 from __future__ import annotations
 
@@ -17,41 +19,48 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, HRFlowable,
+    KeepTogether,
 )
 from reportlab.lib.enums import TA_CENTER
-from reportlab.graphics.shapes import Drawing, Rect, String
+from reportlab.graphics.shapes import Drawing, String
 from reportlab.graphics.charts.barcharts import VerticalBarChart
+
+SERIF = "Times-Roman"
+SERIF_BOLD = "Times-Bold"
+SERIF_ITALIC = "Times-Italic"
 
 NAVY = colors.HexColor("#1F2A44")
 ACCENT = colors.HexColor("#2A78D6")
 AQUA = colors.HexColor("#1BAF7A")
 GREY = colors.HexColor("#667085")
-LIGHT_GREY = colors.HexColor("#F2F4F7")
 ZEBRA = colors.HexColor("#F7F9FC")
 RED = colors.HexColor("#C0392B")
 AMBER = colors.HexColor("#B8860B")
 GREEN_BG = colors.HexColor("#EAF7F0")
 BLUE_BG = colors.HexColor("#EAF2FB")
 RED_BG = colors.HexColor("#FBEAEA")
+RULE_GREY = colors.HexColor("#D0D5DD")
 
 PAGE_W, PAGE_H = letter
 
 
 def _styles():
     ss = getSampleStyleSheet()
-    ss.add(ParagraphStyle("CoverTitle", parent=ss["Title"], fontSize=28, textColor=colors.white, spaceAfter=6))
-    ss.add(ParagraphStyle("CoverSub", parent=ss["Normal"], fontSize=12, textColor=colors.white, alignment=TA_CENTER))
-    ss.add(ParagraphStyle("CoverMeta", parent=ss["Normal"], fontSize=10, textColor=colors.HexColor("#C9D6EA"), alignment=TA_CENTER))
-    ss.add(ParagraphStyle("Section", parent=ss["Heading1"], fontSize=16, textColor=NAVY, spaceBefore=4, spaceAfter=10))
-    ss.add(ParagraphStyle("SubSection", parent=ss["Heading2"], fontSize=12, textColor=ACCENT, spaceBefore=10, spaceAfter=6))
-    ss.add(ParagraphStyle("Body", parent=ss["Normal"], fontSize=10, leading=14))
-    ss.add(ParagraphStyle("Small", parent=ss["Normal"], fontSize=8, textColor=GREY))
-    ss.add(ParagraphStyle("FlagRed", parent=ss["Normal"], fontSize=10, textColor=RED, leading=14))
-    ss.add(ParagraphStyle("FlagAmber", parent=ss["Normal"], fontSize=10, textColor=AMBER, leading=14))
-    ss.add(ParagraphStyle("FlagInfo", parent=ss["Normal"], fontSize=10, textColor=GREY, leading=14))
-    ss.add(ParagraphStyle("HeadlineNum", parent=ss["Normal"], fontSize=20, textColor=NAVY, fontName="Helvetica-Bold"))
-    ss.add(ParagraphStyle("HeadlineLabel", parent=ss["Normal"], fontSize=9, textColor=GREY))
+    for name in ("Normal", "Title", "Heading1", "Heading2"):
+        ss[name].fontName = SERIF
+    ss.add(ParagraphStyle("CoverTitle", fontName=SERIF_BOLD, fontSize=27, leading=32, textColor=colors.white, spaceAfter=8, alignment=TA_CENTER))
+    ss.add(ParagraphStyle("CoverSub", fontName=SERIF, fontSize=12, leading=16, textColor=colors.white, alignment=TA_CENTER))
+    ss.add(ParagraphStyle("CoverMeta", fontName=SERIF, fontSize=10, leading=15, textColor=colors.HexColor("#C9D6EA"), alignment=TA_CENTER))
+    ss.add(ParagraphStyle("Section", fontName=SERIF_BOLD, fontSize=15, leading=19, textColor=NAVY, spaceBefore=2, spaceAfter=6))
+    ss.add(ParagraphStyle("SubSection", fontName=SERIF_BOLD, fontSize=11, leading=14, textColor=ACCENT, spaceBefore=6, spaceAfter=4))
+    ss.add(ParagraphStyle("Body", fontName=SERIF, fontSize=10, leading=13))
+    ss.add(ParagraphStyle("Small", fontName=SERIF, fontSize=8, leading=11, textColor=GREY))
+    ss.add(ParagraphStyle("FlagRed", fontName=SERIF, fontSize=9.5, leading=13, textColor=RED))
+    ss.add(ParagraphStyle("FlagAmber", fontName=SERIF, fontSize=9.5, leading=13, textColor=AMBER))
+    ss.add(ParagraphStyle("FlagInfo", fontName=SERIF, fontSize=9.5, leading=13, textColor=GREY))
+    ss.add(ParagraphStyle("HeadlineNum", fontName=SERIF_BOLD, fontSize=18, leading=22, textColor=NAVY))
+    ss.add(ParagraphStyle("HeadlineLabel", fontName=SERIF, fontSize=8.5, leading=11, textColor=GREY))
     return ss
 
 
@@ -72,23 +81,28 @@ def _fmt_num(v, pct=False):
     return str(v)
 
 
+def _divider():
+    return HRFlowable(width="100%", thickness=0.6, color=RULE_GREY, spaceBefore=10, spaceAfter=10)
+
+
 def _table(data, col_widths=None, header=True, zebra=True, highlight_last=False, neg_cols=None):
     """neg_cols: column indices whose values should render red when the cell
     text starts with '-' (used for %-change and delta columns)."""
     t = Table(data, colWidths=col_widths, repeatRows=1 if header else 0)
     style = [
+        ("FONTNAME", (0, 0), (-1, -1), SERIF),
         ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#D0D5DD")),
+        ("GRID", (0, 0), (-1, -1), 0.4, RULE_GREY),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4.5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 3.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
     ]
     body_start = 1 if header else 0
     if header:
         style += [
             ("BACKGROUND", (0, 0), (-1, 0), NAVY),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, 0), SERIF_BOLD),
         ]
     if zebra:
         for i in range(body_start, len(data)):
@@ -97,7 +111,7 @@ def _table(data, col_widths=None, header=True, zebra=True, highlight_last=False,
     if highlight_last:
         style += [
             ("BACKGROUND", (0, -1), (-1, -1), BLUE_BG),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+            ("FONTNAME", (0, -1), (-1, -1), SERIF_BOLD),
         ]
     if neg_cols:
         for r in range(body_start, len(data)):
@@ -109,30 +123,29 @@ def _table(data, col_widths=None, header=True, zebra=True, highlight_last=False,
 
 
 def _scenario_chart(bear_ev, base_ev, bull_ev):
-    d = Drawing(420, 200)
+    d = Drawing(400, 165)
     chart = VerticalBarChart()
     chart.x = 40
-    chart.y = 20
-    chart.height = 150
-    chart.width = 340
+    chart.y = 15
+    chart.height = 120
+    chart.width = 320
     chart.data = [[bear_ev or 0, base_ev or 0, bull_ev or 0]]
     chart.categoryAxis.categoryNames = ["Bear", "Base", "Bull"]
-    chart.categoryAxis.labels.fontSize = 10
-    chart.categoryAxis.labels.fontName = "Helvetica-Bold"
+    chart.categoryAxis.labels.fontSize = 9.5
+    chart.categoryAxis.labels.fontName = SERIF_BOLD
     chart.valueAxis.valueMin = 0
     chart.valueAxis.labelTextFormat = lambda v: _fmt_num(v)
-    chart.valueAxis.labels.fontSize = 8
-    chart.bars[0].fillColor = ACCENT
+    chart.valueAxis.labels.fontSize = 7.5
+    chart.valueAxis.labels.fontName = SERIF
     chart.barWidth = 10
     chart.groupSpacing = 20
-    # per-bar colors: bear red, base blue, bull green
     chart.bars.strokeColor = None
     chart.bars[(0, 0)].fillColor = RED
     chart.bars[(0, 1)].fillColor = ACCENT
     chart.bars[(0, 2)].fillColor = AQUA
     d.add(chart)
-    d.add(String(chart.x, chart.y + chart.height + 14, "Enterprise Value by Scenario",
-                  fontSize=10, fontName="Helvetica-Bold", fillColor=NAVY))
+    d.add(String(chart.x, chart.y + chart.height + 12, "Enterprise Value by Scenario",
+                  fontSize=9.5, fontName=SERIF_BOLD, fillColor=NAVY))
     return d
 
 
@@ -158,49 +171,49 @@ def build_pdf_report(
         canvas.setFillColor(NAVY)
         canvas.rect(0, 0, PAGE_W, PAGE_H, fill=1, stroke=0)
         canvas.setFillColor(colors.HexColor("#2A4A7D"))
-        canvas.rect(0, PAGE_H - 3.4 * inch, PAGE_W, 3.4 * inch, fill=1, stroke=0)
+        canvas.rect(0, PAGE_H - 2.6 * inch, PAGE_W, 2.6 * inch, fill=1, stroke=0)
         canvas.setStrokeColor(ACCENT)
         canvas.setLineWidth(2)
-        canvas.line(1 * inch, PAGE_H - 3.6 * inch, PAGE_W - 1 * inch, PAGE_H - 3.6 * inch)
+        canvas.line(1 * inch, PAGE_H - 2.8 * inch, PAGE_W - 1 * inch, PAGE_H - 2.8 * inch)
         canvas.restoreState()
 
     def _header_footer(canvas, doc):
         canvas.saveState()
         # Header
         canvas.setFillColor(NAVY)
-        canvas.rect(0, PAGE_H - 0.55 * inch, PAGE_W, 0.55 * inch, fill=1, stroke=0)
+        canvas.rect(0, PAGE_H - 0.5 * inch, PAGE_W, 0.5 * inch, fill=1, stroke=0)
         canvas.setFillColor(colors.white)
-        canvas.setFont("Helvetica-Bold", 9)
-        canvas.drawString(0.75 * inch, PAGE_H - 0.36 * inch, company_name)
-        canvas.setFont("Helvetica", 8)
+        canvas.setFont(SERIF_BOLD, 9.5)
+        canvas.drawString(0.7 * inch, PAGE_H - 0.33 * inch, company_name)
+        canvas.setFont(SERIF, 8.5)
         canvas.setFillColor(colors.HexColor("#C9D6EA"))
-        canvas.drawRightString(PAGE_W - 0.75 * inch, PAGE_H - 0.36 * inch, "DCF Valuation Report · Confidential")
+        canvas.drawRightString(PAGE_W - 0.7 * inch, PAGE_H - 0.33 * inch, "DCF Valuation Report · Confidential")
         # Footer
-        canvas.setStrokeColor(colors.HexColor("#D0D5DD"))
+        canvas.setStrokeColor(RULE_GREY)
         canvas.setLineWidth(0.5)
-        canvas.line(0.75 * inch, 0.6 * inch, PAGE_W - 0.75 * inch, 0.6 * inch)
-        canvas.setFont("Helvetica", 8)
+        canvas.line(0.7 * inch, 0.55 * inch, PAGE_W - 0.7 * inch, 0.55 * inch)
+        canvas.setFont(SERIF, 8)
         canvas.setFillColor(GREY)
-        canvas.drawString(0.75 * inch, 0.42 * inch, f"Generated {date.today().strftime('%B %d, %Y')} · Prepared by {analyst}")
-        canvas.drawRightString(PAGE_W - 0.75 * inch, 0.42 * inch, f"Page {doc.page}")
+        canvas.drawString(0.7 * inch, 0.38 * inch, f"Generated {date.today().strftime('%B %d, %Y')} · Prepared by {analyst}")
+        canvas.drawRightString(PAGE_W - 0.7 * inch, 0.38 * inch, f"Page {doc.page}")
         canvas.restoreState()
 
     doc = SimpleDocTemplate(
         buf, pagesize=letter,
-        topMargin=0.9 * inch, bottomMargin=0.8 * inch,
-        leftMargin=0.75 * inch, rightMargin=0.75 * inch,
+        topMargin=0.75 * inch, bottomMargin=0.6 * inch,
+        leftMargin=0.7 * inch, rightMargin=0.7 * inch,
         title=report_title,
     )
     story = []
 
     # ---------------- Cover ----------------
-    story.append(Spacer(1, 1.3 * inch))
+    story.append(Spacer(1, 1.0 * inch))
     story.append(Paragraph(company_name, ss["CoverTitle"]))
     story.append(Paragraph("Discounted Cash Flow Valuation &amp; Cash Flow Analysis", ss["CoverSub"]))
-    story.append(Spacer(1, 1.7 * inch))
+    story.append(Spacer(1, 0.9 * inch))
     story.append(Paragraph(f"Prepared by {analyst}", ss["CoverMeta"]))
     story.append(Paragraph(date.today().strftime("%B %d, %Y"), ss["CoverMeta"]))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
     story.append(Paragraph("STRICTLY PRIVATE &amp; CONFIDENTIAL", ss["CoverMeta"]))
     story.append(PageBreak())
 
@@ -222,12 +235,12 @@ def build_pdf_report(
         ("BACKGROUND", (0, 0), (-1, -1), BLUE_BG),
         ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#C9D6EA")),
         ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#C9D6EA")),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
     ]))
     story.append(headline_table)
-    story.append(Spacer(1, 14))
+    story.append(Spacer(1, 10))
 
     summary_txt = (
         f"Based on a discounted cash flow analysis using a {assumptions.get('wacc', 0) * 100:.1f}% WACC and "
@@ -236,7 +249,7 @@ def build_pdf_report(
         + (f" ({_fmt_num(vps)} per share)." if vps else ".")
     )
     story.append(Paragraph(summary_txt, ss["Body"]))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 4))
 
     red_flags = [f for f in change_flags if f.get("severity") == "red"]
     amber_flags = [f for f in change_flags if f.get("severity") == "amber"]
@@ -246,7 +259,7 @@ def build_pdf_report(
         "are detailed in the Cash Flow Analysis section below.",
         ss["Body"],
     ))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     # ---------------- Key Metrics Snapshot ----------------
     story.append(Paragraph("Key Financial Metrics", ss["SubSection"]))
@@ -263,7 +276,7 @@ def build_pdf_report(
             _fmt_num(m.get("roe"), pct=True),
         ])
     story.append(_table(rows))
-    story.append(PageBreak())
+    story.append(_divider())
 
     # ---------------- Cash Flow Change Analysis ----------------
     story.append(Paragraph("Cash Flow Analysis — Period-over-Period Changes", ss["Section"]))
@@ -281,7 +294,7 @@ def build_pdf_report(
             f"{c.get('ocf_to_ni')}x" if c.get("ocf_to_ni") is not None else "—",
         ])
     story.append(_table(rows, neg_cols=[2, 6]))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     story.append(Paragraph("Flagged Changes", ss["SubSection"]))
     if not change_flags:
@@ -289,11 +302,13 @@ def build_pdf_report(
     for fl in change_flags:
         style = {"red": ss["FlagRed"], "amber": ss["FlagAmber"]}.get(fl.get("severity"), ss["FlagInfo"])
         badge = {"red": "CRITICAL", "amber": "WATCH", "info": "NOTE"}.get(fl.get("severity"), "NOTE")
-        story.append(Paragraph(f"<b>[{badge}] {fl.get('title')}</b> ({fl.get('period')})", style))
-        story.append(Paragraph(fl.get("message", ""), ss["Body"]))
-        story.append(Spacer(1, 4))
+        story.append(KeepTogether([
+            Paragraph(f"<b>[{badge}] {fl.get('title')}</b> ({fl.get('period')})", style),
+            Paragraph(fl.get("message", ""), ss["Body"]),
+            Spacer(1, 3),
+        ]))
 
-    story.append(PageBreak())
+    story.append(_divider())
 
     # ---------------- DCF Valuation ----------------
     story.append(Paragraph("DCF Valuation", ss["Section"]))
@@ -308,7 +323,7 @@ def build_pdf_report(
         ["Net Debt", _fmt_num(assumptions.get("net_debt"))],
     ]
     story.append(_table(assum_rows, col_widths=[2.5 * inch, 2.5 * inch]))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     story.append(Paragraph("Projected Free Cash Flow", ss["SubSection"]))
     proj_rows = [["Year", "Revenue", "Free Cash Flow", "Discount Factor", "Present Value"]]
@@ -318,7 +333,7 @@ def build_pdf_report(
             p.get("discount_factor"), _fmt_num(p.get("present_value")),
         ])
     story.append(_table(proj_rows))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 8))
 
     valuation_rows = [
         ["Sum of PV of FCF", _fmt_num(dcf.get("sum_pv_fcf"))],
@@ -333,16 +348,16 @@ def build_pdf_report(
     story.append(_table(valuation_rows, col_widths=[3 * inch, 2.5 * inch], header=False, zebra=False, highlight_last=True))
 
     if dcf.get("warnings"):
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 6))
         for w in dcf["warnings"]:
             story.append(Paragraph(f"⚠ {w}", ss["FlagAmber"]))
 
-    story.append(PageBreak())
+    story.append(_divider())
 
     # ---------------- Sensitivity ----------------
     story.append(Paragraph("Sensitivity Analysis — Enterprise Value", ss["Section"]))
     story.append(Paragraph("WACC (rows) vs. Terminal Growth Rate (columns)", ss["Body"]))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
     sens = dcf.get("sensitivity", {})
     wacc_axis = sens.get("wacc_axis", [])
     g_axis = sens.get("terminal_growth_axis", [])
@@ -357,14 +372,11 @@ def build_pdf_report(
         rows.append(row)
         if abs(w - assumptions.get("wacc", 0)) < 1e-6:
             base_wacc_idx = i + 1
-    table_style_extra = []
-    if base_wacc_idx is not None:
-        table_style_extra.append(("BACKGROUND", (0, base_wacc_idx), (-1, base_wacc_idx), BLUE_BG))
     sens_table = _table(rows)
-    if table_style_extra:
-        sens_table.setStyle(TableStyle(table_style_extra))
+    if base_wacc_idx is not None:
+        sens_table.setStyle(TableStyle([("BACKGROUND", (0, base_wacc_idx), (-1, base_wacc_idx), BLUE_BG)]))
     story.append(sens_table)
-    story.append(PageBreak())
+    story.append(_divider())
 
     # ---------------- Scenario Analysis ----------------
     if scenarios:
@@ -374,11 +386,11 @@ def build_pdf_report(
             "WACC and terminal growth are held constant so the spread isolates operating-case risk.",
             ss["Body"],
         ))
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 6))
         bear, base, bull = scenarios.get("bear", {}), scenarios.get("base", {}), scenarios.get("bull", {})
 
         story.append(_scenario_chart(bear.get("enterprise_value"), base.get("enterprise_value"), bull.get("enterprise_value")))
-        story.append(Spacer(1, 12))
+        story.append(Spacer(1, 8))
 
         scen_rows = [
             ["Metric", "Bear", "Base", "Bull"],
@@ -406,7 +418,7 @@ def build_pdf_report(
             ("BACKGROUND", (3, 1), (3, -1), GREEN_BG),
         ]))
         story.append(scen_table)
-        story.append(PageBreak())
+        story.append(_divider())
 
     # ---------------- Risk / Concern Flags ----------------
     story.append(Paragraph("Risk Flags &amp; Concern Areas", ss["Section"]))
@@ -415,13 +427,15 @@ def build_pdf_report(
     for c in concerns:
         style = ss["FlagRed"] if c.get("severity") == "red" else ss["FlagAmber"]
         badge = "CRITICAL" if c.get("severity") == "red" else "WATCH"
-        story.append(Paragraph(f"<b>[{badge}] {c.get('title')}</b> ({c.get('period')})", style))
-        story.append(Paragraph(c.get("message", ""), ss["Body"]))
-        story.append(Spacer(1, 4))
+        story.append(KeepTogether([
+            Paragraph(f"<b>[{badge}] {c.get('title')}</b> ({c.get('period')})", style),
+            Paragraph(c.get("message", ""), ss["Body"]),
+            Spacer(1, 3),
+        ]))
 
-    story.append(Spacer(1, 20))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D0D5DD")))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 10))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=RULE_GREY))
+    story.append(Spacer(1, 5))
     story.append(Paragraph(
         "This report is generated from a deterministic model over the uploaded financial data for internal "
         "analysis purposes only. It does not constitute investment advice, an offer, or a solicitation. All "
