@@ -190,12 +190,12 @@
   function metricAt(data, period) { return data.metrics.find((m) => m.period === period); }
 
   const KPI_DEFS = [
-    { key: "revenue", label: "Revenue", fmt: fmtCurrency },
-    { key: "net_income", label: "Net Income", fmt: fmtCurrency },
-    { key: "net_margin", label: "Net Margin", fmt: fmtPct },
-    { key: "current_ratio", label: "Current Ratio", fmt: fmtRatio },
-    { key: "debt_to_equity", label: "Debt / Equity", fmt: fmtRatio },
-    { key: "roe", label: "Return on Equity", fmt: fmtPct },
+    { key: "revenue", label: "Revenue", fmt: fmtCurrency, accent: "blue" },
+    { key: "net_income", label: "Net Income", fmt: fmtCurrency, accent: "aqua" },
+    { key: "net_margin", label: "Net Margin", fmt: fmtPct, accent: "orange" },
+    { key: "current_ratio", label: "Current Ratio", fmt: fmtRatio, accent: "yellow" },
+    { key: "debt_to_equity", label: "Debt / Equity", fmt: fmtRatio, accent: "magenta" },
+    { key: "roe", label: "Return on Equity", fmt: fmtPct, accent: "violet" },
   ];
 
   function renderKpis(data, period) {
@@ -208,7 +208,7 @@
       const value = curr ? curr[def.key] : null;
       const prevValue = prev ? prev[def.key] : null;
       const card = document.createElement("div");
-      card.className = "kpi-card";
+      card.className = `kpi-card kpi-card--${def.accent}`;
       let deltaHtml = "";
       if (value != null && prevValue != null && prevValue !== 0) {
         const delta = value - prevValue;
