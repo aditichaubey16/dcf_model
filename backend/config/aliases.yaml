@@ -1,0 +1,115 @@
+# Maps canonical financial line items to lists of label variants
+# found in real-world statements. Matching is case-insensitive and
+# punctuation/whitespace-normalized. Extend freely.
+
+income_statement:
+  revenue:
+    - revenue
+    - total revenue
+    - net revenue
+    - net sales
+    - total sales
+    - turnover
+    - sales
+    - income from operations
+  cost_of_goods_sold:
+    - cost of goods sold
+    - cogs
+    - cost of sales
+    - cost of revenue
+  gross_profit:
+    - gross profit
+    - gross margin
+  operating_expenses:
+    - operating expenses
+    - total operating expenses
+    - opex
+    - selling general and administrative expenses
+    - sg&a
+  operating_income:
+    - operating income
+    - operating profit
+    - ebit
+    - income from operations
+    - profit from operations
+  interest_expense:
+    - interest expense
+    - finance costs
+    - finance cost
+    - interest and finance charges
+  depreciation_amortization:
+    - depreciation and amortization
+    - depreciation & amortization
+    - depreciation
+  net_income:
+    - net income
+    - net profit
+    - profit for the year
+    - profit after tax
+    - pat
+    - net earnings
+
+balance_sheet:
+  cash_and_equivalents:
+    - cash and cash equivalents
+    - cash and bank balances
+    - cash
+  current_assets:
+    - total current assets
+    - current assets
+  inventory:
+    - inventory
+    - inventories
+    - stock in trade
+  accounts_receivable:
+    - accounts receivable
+    - trade receivables
+    - debtors
+    - receivables
+  total_assets:
+    - total assets
+  current_liabilities:
+    - total current liabilities
+    - current liabilities
+  accounts_payable:
+    - accounts payable
+    - trade payables
+    - creditors
+    - payables
+  short_term_debt:
+    - short term borrowings
+    - short-term debt
+    - current portion of long term debt
+  long_term_debt:
+    - long term borrowings
+    - long-term debt
+    - non current borrowings
+  total_liabilities:
+    - total liabilities
+  total_equity:
+    - total equity
+    - shareholders equity
+    - total shareholders equity
+    - stockholders equity
+    - net worth
+
+cash_flow:
+  operating_cash_flow:
+    - net cash from operating activities
+    - cash flow from operations
+    - operating cash flow
+    - net cash provided by operating activities
+  investing_cash_flow:
+    - net cash from investing activities
+    - cash flow from investing
+    - net cash used in investing activities
+  financing_cash_flow:
+    - net cash from financing activities
+    - cash flow from financing
+    - net cash used in financing activities
+  capital_expenditure:
+    - capital expenditure
+    - purchase of property plant and equipment
+    - capex
+  free_cash_flow:
+    - free cash flow

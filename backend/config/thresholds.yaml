@@ -1,0 +1,75 @@
+# Concern-rule thresholds. Edit freely to tune sensitivity.
+# severity: "red" | "amber"
+
+rules:
+  - id: low_current_ratio
+    metric: current_ratio
+    condition: less_than
+    value: 1.0
+    severity: red
+    title: "Liquidity risk"
+    message: "Current ratio is below 1.0 ({value}) in {period} — current liabilities exceed current assets."
+
+  - id: tight_current_ratio
+    metric: current_ratio
+    condition: between
+    value: [1.0, 1.2]
+    severity: amber
+    title: "Thin liquidity buffer"
+    message: "Current ratio is only {value} in {period} — limited cushion over current liabilities."
+
+  - id: quick_ratio_low
+    metric: quick_ratio
+    condition: less_than
+    value: 0.8
+    severity: amber
+    title: "Weak quick ratio"
+    message: "Quick ratio of {value} in {period} suggests reliance on inventory to cover short-term obligations."
+
+  - id: high_leverage
+    metric: debt_to_equity
+    condition: greater_than
+    value: 2.0
+    severity: red
+    title: "High leverage"
+    message: "Debt-to-equity of {value} in {period} indicates elevated financial risk."
+
+  - id: negative_net_margin
+    metric: net_margin
+    condition: less_than
+    value: 0
+    severity: red
+    title: "Operating at a loss"
+    message: "Net margin is negative ({value}) in {period}."
+
+  - id: low_interest_coverage
+    metric: interest_coverage
+    condition: less_than
+    value: 1.5
+    severity: red
+    title: "Weak interest coverage"
+    message: "Interest coverage ratio of {value} in {period} means earnings barely cover (or don't cover) interest obligations."
+
+  - id: margin_decline_trend
+    metric: net_margin
+    condition: declining_trend
+    value: 3
+    severity: amber
+    title: "Margin erosion"
+    message: "Net margin has declined for {value}+ consecutive periods, ending at {period}."
+
+  - id: cash_flow_income_mismatch
+    metric: cf_income_mismatch
+    condition: flag_true
+    value: true
+    severity: red
+    title: "Earnings quality concern"
+    message: "Net income was positive but operating cash flow was negative in {period} — possible earnings quality issue."
+
+  - id: revenue_decline
+    metric: revenue_growth
+    condition: less_than
+    value: 0
+    severity: amber
+    title: "Revenue contraction"
+    message: "Revenue declined {value}% in {period} versus the prior period."

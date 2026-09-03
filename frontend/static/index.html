@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PE DCF Analyzer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F2A44'/%3E%3Ctext x='16' y='22' font-family='system-ui,sans-serif' font-size='13' font-weight='700' fill='white' text-anchor='middle'%3EDCF%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="app-shell" id="app-shell" data-theme="light">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">DCF</span>
+      <span class="brand-name">PE DCF Analyzer</span>
+      <span class="brand-sub">local · offline · no third-party services</span>
+    </div>
+    <div class="topbar-actions">
+      <span id="file-label" class="file-label"></span>
+      <button id="theme-toggle" class="btn btn-ghost" title="Toggle theme" type="button">◐</button>
+      <button id="new-file-btn" class="btn btn-ghost" type="button" hidden>New file</button>
+    </div>
+  </header>
+
+  <!-- ===================== UPLOAD SCREEN ===================== -->
+  <section id="upload-screen" class="screen upload-screen">
+    <div class="upload-card">
+      <h1>Upload company financials</h1>
+      <p class="muted">Excel, CSV, or PDF. Everything is parsed and analyzed locally on this machine — nothing is uploaded to any external service.</p>
+
+      <label for="file-input" id="dropzone" class="dropzone">
+        <div class="dropzone-icon">⬆</div>
+        <div class="dropzone-text">Drop a file here, or click to choose</div>
+        <div class="dropzone-hint">.xlsx · .xls · .csv · .pdf</div>
+        <input id="file-input" type="file" accept=".xlsx,.xls,.csv,.pdf" hidden />
+      </label>
+
+      <div id="selected-file" class="selected-file" hidden>
+        <span id="selected-file-name"></span>
+        <button id="analyze-btn" class="btn btn-primary" type="button">Analyze ▶</button>
+      </div>
+
+      <div class="dummy-btn-row">
+        <button id="use-dummy-btn" class="btn btn-ghost" type="button">Use sample data instead ▶</button>
+      </div>
+
+      <div class="sample-report-row">
+        <p class="muted">Or, see what a finished report looks like without uploading anything:</p>
+        <div class="sample-report-links">
+          <a class="btn btn-ghost" href="/sample/sample_dcf_report.pdf" target="_blank" rel="noopener">View sample PDF report ↗</a>
+          <a class="btn btn-ghost" href="/sample/sample_dcf_report.xlsx" download>Download sample Excel model ⬇</a>
+        </div>
+      </div>
+
+      <div id="pipeline-progress" class="pipeline-progress" hidden>
+        <div class="pipeline-step" data-step="detect">Detecting file format…</div>
+        <div class="pipeline-step" data-step="extract">Extracting tables…</div>
+        <div class="pipeline-step" data-step="normalize">Mapping line items to standard schema…</div>
+        <div class="pipeline-step" data-step="analyze">Computing ratios &amp; cash flow changes…</div>
+        <div class="pipeline-step" data-step="concerns">Scanning for concern areas…</div>
+        <div class="pipeline-step" data-step="render">Rendering dashboard…</div>
+      </div>
+
+      <div id="error-box" class="error-box" hidden></div>
+    </div>
+  </section>
+
+  <!-- ===================== DASHBOARD SCREEN ===================== -->
+  <section id="dashboard-screen" class="screen dashboard-screen" hidden>
+
+    <div class="filter-row">
+      <div class="filter-group">
+        <label for="period-select">Period</label>
+        <select id="period-select"></select>
+      </div>
+      <div class="filter-group grow"></div>
+      <button id="table-toggle-btn" class="btn btn-ghost" type="button">View as table</button>
+      <button id="review-btn" class="btn btn-ghost" type="button" hidden>Review unmapped items</button>
+    </div>
+
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <div class="main-grid">
+      <div class="charts-col">
+        <div class="chart-card">
+          <h3>Revenue &amp; Net Income</h3>
+          <canvas id="chart-revenue"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Margins</h3>
+          <canvas id="chart-margins"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Liquidity</h3>
+          <canvas id="chart-liquidity"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Leverage (Debt-to-Equity)</h3>
+          <canvas id="chart-leverage"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Financial Position</h3>
+          <canvas id="chart-position"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Cash Flow</h3>
+          <canvas id="chart-cashflow"></canvas>
+        </div>
+      </div>
+
+      <div class="concerns-col">
+        <div class="concerns-card">
+          <h3>Concern Areas</h3>
+          <div id="concerns-list" class="concerns-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="table-view" class="table-view" hidden>
+      <h3>All metrics by period</h3>
+      <div class="table-scroll">
+        <table id="metrics-table"></table>
+      </div>
+    </div>
+
+    <div id="review-panel" class="review-panel" hidden>
+      <h3>Unmapped / low-confidence line items</h3>
+      <p class="muted">These labels from your file weren't confidently matched to a standard field, so they were excluded from the analysis below.</p>
+      <div class="table-scroll">
+        <table id="review-table"></table>
+      </div>
+    </div>
+
+    <!-- ===================== CASH FLOW CHANGE ANALYSIS ===================== -->
+    <div class="section-title">Cash Flow Change Analysis</div>
+    <div class="dcf-card">
+      <h3>Period-over-period cash flow moves</h3>
+      <p class="muted">Operating / investing / financing / free cash flow deltas, FCF conversion, and divergence from revenue growth — flagged automatically.</p>
+      <div class="table-scroll">
+        <table id="cf-changes-table"></table>
+      </div>
+      <div id="cf-flags-list" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- ===================== DCF VALUATION ===================== -->
+    <div class="section-title">DCF Valuation</div>
+    <div class="dcf-card">
+      <h3>Assumptions</h3>
+      <p class="muted">Adjust and re-run — the valuation, sensitivity grid, and both reports below use these inputs.</p>
+      <div class="dcf-grid">
+        <div class="dcf-field"><label>Projection years</label><input id="dcf-years" type="number" value="5" min="1" max="10" /></div>
+        <div class="dcf-field"><label>Revenue growth rate (%)</label><input id="dcf-growth" type="number" value="8" step="0.5" /></div>
+        <div class="dcf-field"><label>FCF margin override (%, optional)</label><input id="dcf-margin" type="number" step="0.5" placeholder="auto (historical avg)" /></div>
+        <div class="dcf-field"><label>WACC (%)</label><input id="dcf-wacc" type="number" value="10" step="0.25" /></div>
+        <div class="dcf-field"><label>Terminal growth rate (%)</label><input id="dcf-tgr" type="number" value="2.5" step="0.25" /></div>
+        <div class="dcf-field"><label>Net debt</label><input id="dcf-netdebt" type="number" value="0" step="1000000" /></div>
+        <div class="dcf-field"><label>Shares outstanding (optional)</label><input id="dcf-shares" type="number" placeholder="optional" /></div>
+        <div class="dcf-field"><label>Company name (for reports)</label><input id="dcf-company" type="text" value="Target Company" /></div>
+      </div>
+      <button id="run-dcf-btn" class="btn btn-primary" type="button">Run DCF ▶</button>
+
+      <div id="dcf-results" class="dcf-results" hidden>
+        <div class="dcf-results-row">
+          <div class="kpi-card"><div class="kpi-label">Enterprise Value</div><div class="kpi-value" id="dcf-ev">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Equity Value</div><div class="kpi-value" id="dcf-eq">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Value per Share</div><div class="kpi-value" id="dcf-vps">—</div></div>
+          <div class="kpi-card"><div class="kpi-label">Assumed FCF Margin</div><div class="kpi-value" id="dcf-margin-out">—</div></div>
+        </div>
+        <div id="dcf-warnings"></div>
+
+        <h3 style="margin-top:20px;">Projected Free Cash Flow</h3>
+        <div class="table-scroll"><table id="dcf-projection-table"></table></div>
+
+        <h3 style="margin-top:20px;">Sensitivity — Enterprise Value (WACC × Terminal Growth)</h3>
+        <div class="table-scroll"><table id="dcf-sensitivity-table"></table></div>
+
+        <h3 style="margin-top:20px;">Scenario Analysis — Bear / Base / Bull</h3>
+        <p class="muted">Revenue growth and FCF margin flexed ±4pts / ±2pts around the base case; WACC and terminal growth held constant.</p>
+        <button id="run-scenarios-btn" class="btn btn-ghost" type="button">Run Scenario Analysis ▶</button>
+        <div id="scenario-results" class="table-scroll" style="margin-top:12px;" hidden><table id="scenario-table"></table></div>
+
+        <div class="report-actions">
+          <button id="download-excel-btn" class="btn btn-primary" type="button">Download Excel Model ⬇</button>
+          <button id="download-pdf-btn" class="btn btn-primary" type="button">Download PDF Report ⬇</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</div>
+
+<script src="/vendor/chart.umd.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
